@@ -6,10 +6,13 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
+<!-- Biblioteca Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <style>
 body { font-family: Arial; background: #111; color: white; text-align: center; padding: 20px; }
 h1 { color: #00ffcc; }
-input { margin: 20px; padding: 10px; }
+input, button { margin: 10px; padding: 10px; }
 table { width: 95%; margin: 20px auto; border-collapse: collapse; }
 th, td { border: 1px solid #fff; padding: 8px; text-align: right; }
 th { background: #00aa88; color: #fff; }
@@ -17,6 +20,8 @@ td:first-child { text-align: left; }
 td { background: #063; }
 .maior { background: #0044ff; }
 .menor { background: #880000; }
+button { background: #00aa88; color: white; border: none; cursor: pointer; }
+button:hover { background: #008866; }
 </style>
 </head>
 
@@ -25,8 +30,10 @@ td { background: #063; }
 <h1>📄 Resumo de PDFs Positivos</h1>
 
 <input type="file" id="pdfInput" multiple accept="application/pdf">
+<br>
+<button onclick="exportarExcel()">📊 Exportar para Excel</button>
 
-<table>
+<table id="tabela">
   <thead>
     <tr>
       <th>Arquivo</th>
@@ -46,7 +53,7 @@ td { background: #063; }
 
 <script>
 
-// worker PDF.js
+// PDF worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
 
@@ -85,7 +92,7 @@ async function lerPDF(file) {
   });
 }
 
-// converter valor texto → número
+// converter valor
 function converterParaNumero(valor) {
   if (!valor || valor === "-") return 0;
 
@@ -104,58 +111,45 @@ function extrairInformacoes(texto, nomeArquivo) {
 
   function pegarUltimoValor(linha) {
     if (!linha) return "-";
-
     const numeros = linha.match(/\(?\d{1,3}(?:\.\d{3})*,\d{2}\)?/g);
     if (!numeros) return "-";
-
     return numeros[numeros.length - 1];
   }
 
   function buscarLinha(codigo) {
     const linhas = texto.split("\n");
-
     for (let linha of linhas) {
-      if (linha.includes(codigo)) {
-        return linha;
-      }
+      if (linha.includes(codigo)) return linha;
     }
     return "";
   }
 
-  // valores extraídos
   const resultado = pegarUltimoValor(buscarLinha("2600"));
   const produtos = pegarUltimoValor(buscarLinha("2603"));
   const mercadoria = pegarUltimoValor(buscarLinha("2652"));
   const servicos = pegarUltimoValor(buscarLinha("2700"));
   const simples = pegarUltimoValor(buscarLinha("2831"));
 
-  // converter para número
   const vResultado = converterParaNumero(resultado);
   const vProdutos = converterParaNumero(produtos);
   const vMercadoria = converterParaNumero(mercadoria);
   const vServicos = converterParaNumero(servicos);
   const vSimples = converterParaNumero(simples);
 
-  // cálculos
   const calcProdutos = vProdutos * 0.08;
   const calcMercadoria = vMercadoria * 0.08;
   const calcServicos = vServicos * 0.32;
   const calcSimples = vSimples * 0.05;
 
-  // regra 1: serviços + simples
   const totalServicos = calcServicos + calcSimples;
-
-  // regra 2: produtos + mercadoria + simples
   const totalGeral = calcProdutos + calcMercadoria + calcSimples;
 
-  // comparações
   const comparacao1 = totalServicos > vResultado ? "MAIOR" : "MENOR";
   const comparacao2 = totalGeral > vResultado ? "MAIOR" : "MENOR";
 
   const classe1 = comparacao1 === "MAIOR" ? "maior" : "menor";
   const classe2 = comparacao2 === "MAIOR" ? "maior" : "menor";
 
-  // montar tabela
   const tbody = document.getElementById("tabelaResumo");
   const tr = document.createElement("tr");
 
@@ -174,6 +168,14 @@ function extrairInformacoes(texto, nomeArquivo) {
 
   tbody.appendChild(tr);
 }
+
+// 📊 EXPORTAR PARA EXCEL
+function exportarExcel() {
+  const tabela = document.getElementById("tabela");
+  const wb = XLSX.utils.table_to_book(tabela, { sheet: "Resumo" });
+  XLSX.writeFile(wb, "Resumo_PDFs.xlsx");
+}
+
 </script>
 
 </body>
