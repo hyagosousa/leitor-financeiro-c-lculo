@@ -6,13 +6,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
 <style>
-  body { font-family: Arial; background:#111; color:white; padding:20px; text-align:center;}
-  h1 { color:#00ffcc; }
-  input { margin:20px; padding:10px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 20px; color:white; }
-  th, td { border:1px solid #888; padding:8px; text-align:right; }
-  th { background:#333; }
-  tr:nth-child(even){background:#222;}
+body { font-family: Arial; background:#111; color:white; padding:20px; text-align:center;}
+h1 { color:#00ffcc; }
+input { margin:20px; padding:10px; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; color:white; }
+th, td { border:1px solid #888; padding:8px; text-align:right; }
+th { background:#333; }
+tr:nth-child(even){background:#222;}
 </style>
 </head>
 <body>
@@ -71,36 +71,39 @@ async function lerPDF(file) {
   });
 }
 
-function extrairValor(texto, codigo) {
-  const regex = new RegExp(codigo + "\\s+.*?(\\(?\\d{1,3}(?:\\.\\d{3})*,\\d{2}\\)?)","i");
-  const match = texto.match(regex);
+function extrairValorFlex(texto, codigo){
+  // Procura a linha que começa com o código
+  const regexLinha = new RegExp(codigo + "\\s+[^\\n]+", "i");
+  const match = texto.match(regexLinha);
   if(match){
-    return match[1].replace(/[()]/g,'').replace(/\./g,'').replace(',','.');
+    // Pega todos os números na linha
+    const numeros = match[0].match(/\(?\d{1,3}(?:\.\d{3})*,\d{2}\)?/g);
+    if(numeros && numeros.length > 0){
+      // Pega o último número (saldo)
+      let valor = numeros[numeros.length -1];
+      valor = valor.replace(/[()]/g,'').replace(/\./g,'').replace(',','.');
+      return parseFloat(valor);
+    }
   }
   return 0;
 }
 
 function processarPDF(nomeArquivo, texto){
-  // Extrair valores
-  const produto = parseFloat(extrairValor(texto,"2603")) || 0;
-  const mercadoria = parseFloat(extrairValor(texto,"2652")) || 0;
-  const prestacao = parseFloat(extrairValor(texto,"2700")) || 0;
-  const simples = parseFloat(extrairValor(texto,"2831")) || 0;
-  const resultadoPeriodo = parseFloat(extrairValor(texto,"2600")) || 0;
+  const produto = extrairValorFlex(texto,"2603") || 0;
+  const mercadoria = extrairValorFlex(texto,"2652") || 0;
+  const prestacao = extrairValorFlex(texto,"2700") || 0;
+  const simples = extrairValorFlex(texto,"2831") || 0;
+  const resultadoPeriodo = extrairValorFlex(texto,"2600") || 0;
 
-  // Cálculos de porcentagem
   const produtoCalc = produto * 0.08;
   const mercadoriaCalc = mercadoria * 0.08;
   const prestacaoCalc = prestacao * 0.32;
   const simplesCalc = simples * 0.05;
 
-  // Resultado calculado
   const resultadoCalc = (produtoCalc + mercadoriaCalc + prestacaoCalc) - simplesCalc;
 
-  // Comparação
   const comparacao = resultadoCalc >= resultadoPeriodo ? "MAIOR" : "MENOR";
 
-  // Adicionar linha na tabela
   const tbody = document.querySelector("#tabelaResultados tbody");
   const tr = document.createElement("tr");
   tr.innerHTML = `
