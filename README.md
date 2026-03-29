@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Resumo PDF Positivos com Cálculos</title>
+<title>Resumo PDF Positivos</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
@@ -10,17 +10,19 @@
 body { font-family: Arial; background: #111; color: white; text-align: center; padding: 20px; }
 h1 { color: #00ffcc; }
 input { margin: 20px; padding: 10px; }
-table { width: 98%; margin: 20px auto; border-collapse: collapse; }
+table { width: 95%; margin: 20px auto; border-collapse: collapse; }
 th, td { border: 1px solid #fff; padding: 8px; text-align: right; }
 th { background: #00aa88; color: #fff; }
 td:first-child { text-align: left; }
 td { background: #063; }
+.maior { background: #0044ff; }
+.menor { background: #880000; }
 </style>
 </head>
 
 <body>
 
-<h1>📄 Resumo de PDFs Positivos com Cálculos</h1>
+<h1>📄 Resumo de PDFs Positivos</h1>
 
 <input type="file" id="pdfInput" multiple accept="application/pdf">
 
@@ -28,16 +30,12 @@ td { background: #063; }
   <thead>
     <tr>
       <th>Arquivo</th>
-      <th>Resultado do Período (2600)</th>
-      <th>Produto (2603)</th>
-      <th>Produto × 8%</th>
+      <th>Resultado (2600)</th>
+      <th>Produtos (2603)</th>
       <th>Mercadoria (2652)</th>
-      <th>Mercadoria × 8%</th>
-      <th>Prestação Serviços (2700)</th>
-      <th>Prestação × 32%</th>
-      <th>Simples Nacional (2831)</th>
-      <th>Simples × 5%</th>
-      <th>Diferença (Prestação×32% − Simples×5%)</th>
+      <th>Serviços (2700)</th>
+      <th>Simples (2831)</th>
+      <th>Diferença</th>
       <th>Comparação</th>
     </tr>
   </thead>
@@ -45,6 +43,11 @@ td { background: #063; }
 </table>
 
 <script>
+
+// 🔧 IMPORTANTE (worker do PDF.js)
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+
 const input = document.getElementById("pdfInput");
 
 input.addEventListener("change", async (event) => {
@@ -59,10 +62,12 @@ input.addEventListener("change", async (event) => {
 
 async function lerPDF(file) {
   const reader = new FileReader();
+
   return new Promise((resolve) => {
     reader.onload = async function () {
       const typedarray = new Uint8Array(this.result);
       const pdf = await pdfjsLib.getDocument(typedarray).promise;
+
       let texto = "";
       for (let i = 1; i <= pdf.numPages; i++) {
         const pagina = await pdf.getPage(i);
@@ -70,74 +75,93 @@ async function lerPDF(file) {
         conteudo.items.forEach(item => { texto += item.str + " "; });
         texto += "\n";
       }
+
       resolve(texto.toLowerCase());
     };
+
     reader.readAsArrayBuffer(file);
   });
+}
+
+// 🔢 converter texto → número
+function converterParaNumero(valor) {
+  if (!valor || valor === "-") return 0;
+
+  return parseFloat(
+    valor
+      .replace(/\./g, "")
+      .replace(",", ".")
+      .replace("(", "-")
+      .replace(")", "")
+  );
 }
 
 function extrairInformacoes(texto, nomeArquivo) {
 
   texto = texto.replace(/\s+/g, " ");
 
-  function pegarSaldoDaLinha(linha) {
-    if (!linha) return 0;
+  function pegarUltimoValor(linha) {
+    if (!linha) return "-";
+
     const numeros = linha.match(/\(?\d{1,3}(?:\.\d{3})*,\d{2}\)?/g);
-    if (!numeros || numeros.length < 4) return 0;
-    let saldo = numeros[3].replace(/\./g,"").replace(",","."); // transforma em número
-    saldo = saldo.replace("(","-").replace(")",""); // trata negativos
-    return parseFloat(saldo);
+
+    if (!numeros) return "-";
+
+    return numeros[numeros.length - 1];
   }
 
   function buscarLinha(codigo) {
-    const regex = new RegExp(`${codigo}.*?(?=\\d{4}|$)`, "i");
-    const match = texto.match(regex);
-    return match ? match[0] : "";
+    const linhas = texto.split("\n");
+
+    for (let linha of linhas) {
+      if (linha.includes(codigo)) {
+        return linha;
+      }
+    }
+    return "";
   }
 
-  const resultadoLinha = buscarLinha("2600");
-  const produtoLinha = buscarLinha("2603");
-  const mercadoriaLinha = buscarLinha("2652");
-  const servicosLinha = buscarLinha("2700");
-  const simplesLinha = buscarLinha("2831");
+  const resultado = pegarUltimoValor(buscarLinha("2600"));
+  const produtos = pegarUltimoValor(buscarLinha("2603"));
+  const mercadoria = pegarUltimoValor(buscarLinha("2652"));
+  const servicos = pegarUltimoValor(buscarLinha("2700"));
+  const simples = pegarUltimoValor(buscarLinha("2831"));
 
-  const resultado = pegarSaldoDaLinha(resultadoLinha);
-  const produto = pegarSaldoDaLinha(produtoLinha);
-  const mercadoria = pegarSaldoDaLinha(mercadoriaLinha);
-  const prestacao = pegarSaldoDaLinha(servicosLinha);
-  const simples = pegarSaldoDaLinha(simplesLinha);
+  // 🔢 converter para número
+  const vResultado = converterParaNumero(resultado);
+  const vProdutos = converterParaNumero(produtos);
+  const vMercadoria = converterParaNumero(mercadoria);
+  const vServicos = converterParaNumero(servicos);
+  const vSimples = converterParaNumero(simples);
 
-  const produtoCalc = produto * 0.08;
-  const mercadoriaCalc = mercadoria * 0.08;
-  const prestacaoCalc = prestacao * 0.32;
-  const simplesCalc = simples * 0.05;
-  const diferenca = prestacaoCalc - simplesCalc;
-  const comparacao = diferenca > resultado ? "MAIOR" : "MENOR";
+  // 📊 cálculos
+  const calcServicos = vServicos * 0.32;
+  const calcSimples = vSimples * 0.05;
+
+  const diferenca = calcServicos - calcSimples;
+
+  // 🔍 comparação
+  const comparacao = diferenca > vResultado ? "MAIOR" : "MENOR";
+
+  const classe = comparacao === "MAIOR" ? "maior" : "menor";
 
   const tbody = document.getElementById("tabelaResumo");
   const tr = document.createElement("tr");
+
   tr.innerHTML = `
     <td>${nomeArquivo}</td>
-    <td>${resultado.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${produto.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${produtoCalc.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${mercadoria.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${mercadoriaCalc.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${prestacao.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${prestacaoCalc.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${simples.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${simplesCalc.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${diferenca.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-    <td>${comparacao}</td>
+    <td>${resultado}</td>
+    <td>${produtos}</td>
+    <td>${mercadoria}</td>
+    <td>${servicos}</td>
+    <td>${simples}</td>
+    <td>${diferenca.toFixed(2)}</td>
+    <td class="${classe}">${comparacao}</td>
   `;
+
   tbody.appendChild(tr);
 }
 </script>
 
 </body>
-</html>
-}
-</script>
-
-</body>
-</html>
+</html>>
