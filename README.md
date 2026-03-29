@@ -35,7 +35,9 @@ td { background: #063; }
       <th>Mercadoria (2652)</th>
       <th>Serviços (2700)</th>
       <th>Simples (2831)</th>
-      <th>Diferença</th>
+      <th>Serviços + Simples</th>
+      <th>Comparação</th>
+      <th>Prod + Merc + Simples</th>
       <th>Comparação</th>
     </tr>
   </thead>
@@ -44,7 +46,7 @@ td { background: #063; }
 
 <script>
 
-// 🔧 IMPORTANTE (worker do PDF.js)
+// worker PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
 
@@ -83,7 +85,7 @@ async function lerPDF(file) {
   });
 }
 
-// 🔢 converter texto → número
+// converter valor texto → número
 function converterParaNumero(valor) {
   if (!valor || valor === "-") return 0;
 
@@ -104,7 +106,6 @@ function extrairInformacoes(texto, nomeArquivo) {
     if (!linha) return "-";
 
     const numeros = linha.match(/\(?\d{1,3}(?:\.\d{3})*,\d{2}\)?/g);
-
     if (!numeros) return "-";
 
     return numeros[numeros.length - 1];
@@ -121,30 +122,40 @@ function extrairInformacoes(texto, nomeArquivo) {
     return "";
   }
 
+  // valores extraídos
   const resultado = pegarUltimoValor(buscarLinha("2600"));
   const produtos = pegarUltimoValor(buscarLinha("2603"));
   const mercadoria = pegarUltimoValor(buscarLinha("2652"));
   const servicos = pegarUltimoValor(buscarLinha("2700"));
   const simples = pegarUltimoValor(buscarLinha("2831"));
 
-  // 🔢 converter para número
+  // converter para número
   const vResultado = converterParaNumero(resultado);
   const vProdutos = converterParaNumero(produtos);
   const vMercadoria = converterParaNumero(mercadoria);
   const vServicos = converterParaNumero(servicos);
   const vSimples = converterParaNumero(simples);
 
-  // 📊 cálculos
+  // cálculos
+  const calcProdutos = vProdutos * 0.08;
+  const calcMercadoria = vMercadoria * 0.08;
   const calcServicos = vServicos * 0.32;
   const calcSimples = vSimples * 0.05;
 
-  const diferenca = calcServicos - calcSimples;
+  // regra 1: serviços + simples
+  const totalServicos = calcServicos + calcSimples;
 
-  // 🔍 comparação
-  const comparacao = diferenca > vResultado ? "MAIOR" : "MENOR";
+  // regra 2: produtos + mercadoria + simples
+  const totalGeral = calcProdutos + calcMercadoria + calcSimples;
 
-  const classe = comparacao === "MAIOR" ? "maior" : "menor";
+  // comparações
+  const comparacao1 = totalServicos > vResultado ? "MAIOR" : "MENOR";
+  const comparacao2 = totalGeral > vResultado ? "MAIOR" : "MENOR";
 
+  const classe1 = comparacao1 === "MAIOR" ? "maior" : "menor";
+  const classe2 = comparacao2 === "MAIOR" ? "maior" : "menor";
+
+  // montar tabela
   const tbody = document.getElementById("tabelaResumo");
   const tr = document.createElement("tr");
 
@@ -155,8 +166,10 @@ function extrairInformacoes(texto, nomeArquivo) {
     <td>${mercadoria}</td>
     <td>${servicos}</td>
     <td>${simples}</td>
-    <td>${diferenca.toFixed(2)}</td>
-    <td class="${classe}">${comparacao}</td>
+    <td>${totalServicos.toFixed(2)}</td>
+    <td class="${classe1}">${comparacao1}</td>
+    <td>${totalGeral.toFixed(2)}</td>
+    <td class="${classe2}">${comparacao2}</td>
   `;
 
   tbody.appendChild(tr);
@@ -164,4 +177,4 @@ function extrairInformacoes(texto, nomeArquivo) {
 </script>
 
 </body>
-</html>>
+</html>
